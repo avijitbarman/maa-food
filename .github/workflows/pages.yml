@@ -45,3 +45,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
         # Deployment trigger
+        # Redeploy with fresh Firebase config
