@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function staffRole() {
+      return signedIn() && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role
+        : '';
+    }
+    function isAdmin() { return staffRole() == 'admin'; }
+    function isDelivery() { return staffRole() == 'delivery'; }
+    function validCustomer(d) {
+      return d.keys().hasOnly(['name','phone','location','mapLink','address','delivered','deliveredAt'])
+        && d.keys().hasAll(['name','phone','location','delivered'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && d.phone is string && d.phone.size() > 0 && d.phone.size() <= 25
+        && d.location is string && d.location.size() > 0 && d.location.size() <= 100
+        && (!('mapLink' in d) || (d.mapLink is string && d.mapLink.size() <= 1500))
+        && (!('address' in d) || (d.address is string && d.address.size() <= 300))
+        && d.delivered is bool
+        && (!('deliveredAt' in d) || d.deliveredAt == null || d.deliveredAt is timestamp);
+    }
+    match /staff/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /customers/{customerId} {
+      allow read: if isAdmin() || isDelivery();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isDelivery() && validCustomer(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['delivered','deliveredAt']));
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

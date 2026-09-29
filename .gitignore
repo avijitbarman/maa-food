@@ -1,0 +1,6 @@
+# Never commit a local Firebase browser config.
+firebase-config.js
+
+# Local/editor files
+.DS_Store
+.vscode/
